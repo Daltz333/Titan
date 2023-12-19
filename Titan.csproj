@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.0.6" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.0.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.6" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.6" />
+    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.6" />
+    <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.2.2" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="MessageBox.Avalonia" Version="3.1.5.1" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+    <None Remove="Assets\Fonts\LICENSE.txt" />
+    <None Remove="Assets\Fonts\Roboto-Black.ttf" />
+    <None Remove="Assets\Fonts\Roboto-BlackItalic.ttf" />
+    <None Remove="Assets\Fonts\Roboto-Bold.ttf" />
+    <None Remove="Assets\Fonts\Roboto-BoldItalic.ttf" />
+    <None Remove="Assets\Fonts\Roboto-Italic.ttf" />
+    <None Remove="Assets\Fonts\Roboto-Light.ttf" />
+    <None Remove="Assets\Fonts\Roboto-LightItalic.ttf" />
+    <None Remove="Assets\Fonts\Roboto-Medium.ttf" />
+    <None Remove="Assets\Fonts\Roboto-MediumItalic.ttf" />
+    <None Remove="Assets\Fonts\Roboto-Regular.ttf" />
+    <None Remove="Assets\Fonts\Roboto-Thin.ttf" />
+    <None Remove="Assets\Fonts\Roboto-ThinItalic.ttf" />
+  </ItemGroup>
+</Project>

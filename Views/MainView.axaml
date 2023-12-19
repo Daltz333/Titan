@@ -1,0 +1,120 @@
+<UserControl
+    x:Class="Titan.Views.MainView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Titan.Models"
+    xmlns:vm="using:Titan.ViewModels"
+    d:DesignHeight="550"
+    d:DesignWidth="800"
+    x:DataType="vm:MainViewModel"
+    IsEnabled="{Binding Source={x:Static vm:SharedViewModel.Instance}, Path=!IsGlobalBusy}"
+    mc:Ignorable="d">
+    <UserControl.DataContext>
+        <vm:MainViewModel />
+    </UserControl.DataContext>
+    <Grid Margin="10" ColumnDefinitions="*, 1.5*">
+        <Grid
+            Grid.Column="0"
+            ColumnDefinitions="*, auto"
+            RowDefinitions="auto, *">
+            <TextBox
+                Height="20"
+                HorizontalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                FontSize="10"
+                IsReadOnly="True"
+                Text="{Binding SelectedFilePath}"
+                Watermark="Select datalog with browse..." />
+            <Button
+                Grid.Column="1"
+                Margin="5,0,0,0"
+                VerticalAlignment="Stretch"
+                Command="{Binding SelectFileCommand}">
+                <TextBlock VerticalAlignment="Center" Text="Browse" />
+            </Button>
+            <Grid
+                Grid.Row="1"
+                Grid.ColumnSpan="2"
+                RowDefinitions="auto, auto, *">
+                <StackPanel>
+                    <ProgressBar
+                        Margin="0,10,0,0"
+                        Foreground="Green"
+                        Maximum="100"
+                        Minimum="0"
+                        Value="{Binding Progress}" />
+                    <TextBlock
+                        Margin="0,5,0,0"
+                        HorizontalAlignment="Center"
+                        FontSize="10">
+                        <Run Text="Progress: " />
+                        <Run Text="{Binding Progress}" />
+                        <Run Text="%" />
+                    </TextBlock>
+                </StackPanel>
+                <TextBox
+                    Grid.Row="1"
+                    FontSize="12"
+                    TextChanged="TextBox_TextChanged"
+                    Watermark="Search..." />
+                <ScrollViewer Grid.Row="2" Margin="0,5,0,10">
+                    <ItemsControl
+                        Grid.Row="2"
+                        VerticalAlignment="Stretch"
+                        ItemsSource="{Binding Records}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:LogItem">
+                                <Grid
+                                    Height="35"
+                                    ColumnDefinitions="*, auto, 50"
+                                    IsVisible="{Binding IsVisible}">
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="12"
+                                        Text="{Binding Name}"
+                                        TextWrapping="NoWrap"
+                                        ToolTip.Tip="{Binding Name}" />
+                                    <ComboBox
+                                        Grid.Column="1"
+                                        Width="100"
+                                        ItemsSource="{Binding AvailableSignalTypes}"
+                                        SelectedItem="{Binding SelectedRecordType}" />
+                                    <CheckBox
+                                        Grid.Column="2"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        IsChecked="{Binding IsSelected}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+        <StackPanel Grid.Column="1" Margin="10">
+            <TextBlock
+                HorizontalAlignment="Center"
+                FontSize="20"
+                FontWeight="Bold"
+                Text="Titan - WPILog to SysID Converter" />
+            <TextBlock
+                Margin="0,10,0,0"
+                Text="1. Import the WPILib data containing characterization data with the browser button to the left."
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,5,0,0"
+                Text="2. Select the position, voltage and velocity entries that are part of the mechanism being characterized."
+                TextWrapping="Wrap" />
+            <TextBlock Margin="0,5,0,0" Text="3. Press the Convert button below" />
+
+            <Button
+                Margin="0,10,0,0"
+                HorizontalAlignment="Right"
+                Command="{Binding ConvertToSysIdJsonCommand}">
+                <TextBlock Text="Convert" />
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>
