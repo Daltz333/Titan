@@ -40,12 +40,11 @@ namespace Titan.Utilities.Extensions
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="enumerable"></param>
-        /// <returns></returns>
-        public static double GetInterpolatedValue<T>(this IEnumerable<(long, double)> enumerable, T number) where T : INumber<T>
+        public static double GetInterpolatedValue(this IEnumerable<(long, double)> enumerable, long number)
         {
             var numbers = (enumerable as List<(long, double)>) ?? enumerable.ToList();
 
-            var match = enumerable.FirstOrDefault(p => p.Item1 == double.CreateChecked(number), (-1, -1));
+            var match = enumerable.FirstOrDefault(p => p.Item1 == number, (-1, -1));
 
             // no need to interpolate if data timestamp matches
             if (match.Item1 != -1)
@@ -53,13 +52,18 @@ namespace Titan.Utilities.Extensions
                 return match.Item2;
             }
 
-            var prev = numbers.SkipWhile(x => x.Item2 != double.CreateChecked(number)).Skip(1).DefaultIfEmpty(numbers[0]).FirstOrDefault();
-            var next = numbers.TakeWhile(x => x.Item2 != double.CreateChecked(number)).DefaultIfEmpty(numbers[numbers.Count - 1]).LastOrDefault();
+            var prev = numbers.TakeWhile(x => x.Item1 < number).LastOrDefault(numbers[0]);
+            var next = numbers.SkipWhile(x => x.Item1 < number).FirstOrDefault(numbers[numbers.Count - 1]);
+            
+            if (prev == next)
+            {
+                return prev.Item2;
+            }
 
-            var prevDifference = Math.Abs(double.CreateChecked(number) - double.CreateChecked(prev.Item1));
-            var nextDifference = Math.Abs(double.CreateChecked(number) - double.CreateChecked(next.Item1));
+            double prevDifference = number - prev.Item1;
+            double totalDifference = next.Item1 - prev.Item1;
 
-            return double.CreateChecked(prev.Item2) + (double.CreateChecked(next.Item2) - double.CreateChecked(prev.Item2) * (prevDifference / nextDifference));
+            return prev.Item2 + (next.Item2 - prev.Item2) * (prevDifference / totalDifference);
         }
     }
 }

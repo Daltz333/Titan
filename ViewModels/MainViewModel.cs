@@ -58,19 +58,19 @@ namespace Titan.ViewModels
                 { "unitsPerRotation", 1.0 }
             };
 
-            var stateRecord = strings.FirstOrDefault(p => p.Name == "State");
-            var velocityRecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Velocity").Name);
-            var positionRecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Position").Name);
-            var voltageRecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Voltage").Name);
+            var stateRecord = strings.FirstOrDefault(p => p.Name == "State" || p.Name.Contains("sysid-test-state", StringComparison.InvariantCultureIgnoreCase));
+            var velocityRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Velocity")?.Name);
+            var positionRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Position")?.Name);
+            var voltageRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Voltage")?.Name);
 
             if (stateRecord.Values.Count > 0)
             {
                 var dataEntries = new EntryContainer(velocityRecord.Values, positionRecord.Values, voltageRecord.Values);
 
                 rootJson["fast-forward"] = GetTestFrames("dynamic-forward", stateRecord.Values, dataEntries);
-                rootJson["fast-backward"] = GetTestFrames("fast-backward", stateRecord.Values, dataEntries);
-                rootJson["slow-forward"] = GetTestFrames("slow-forward", stateRecord.Values, dataEntries);
-                rootJson["slow-backward"] = GetTestFrames("slow-backward", stateRecord.Values, dataEntries);
+                rootJson["fast-backward"] = GetTestFrames("dynamic-reverse", stateRecord.Values, dataEntries);
+                rootJson["slow-forward"] = GetTestFrames("quasistatic-forward", stateRecord.Values, dataEntries);
+                rootJson["slow-backward"] = GetTestFrames("quasistatic-reverse", stateRecord.Values, dataEntries);
             }
             else
             {
@@ -158,10 +158,10 @@ namespace Titan.ViewModels
                     var entry = velocityInRangeEntries[i];
                     var frame = new double[4];
 
-                    frame[0] = entry.Item1; // set timestamp equal to our most frequent signal
+                    frame[0] = entry.Item1 * 0.001; // set timestamp equal to our most frequent signal
                     frame[1] = voltageInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated voltage value
                     frame[2] = positionInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated position value
-                    frame[3] = entry.Item1; // no need to interpolate, this is our time base
+                    frame[3] = entry.Item2; // no need to interpolate, this is our time base
 
                     frames.Add(frame);
                 }
@@ -173,9 +173,9 @@ namespace Titan.ViewModels
                     var entry = positionInRangeEntries[i];
                     var frame = new double[4];
 
-                    frame[0] = entry.Item1;
+                    frame[0] = entry.Item1 * 0.001;
                     frame[1] = voltageInRangeEntries.GetInterpolatedValue(entry.Item1);
-                    frame[2] = entry.Item1; // get interpolated position value
+                    frame[2] = entry.Item2; // get interpolated position value
                     frame[3] = velocityInRangeEntries.GetInterpolatedValue(entry.Item1);
 
                     frames.Add(frame);
@@ -183,13 +183,13 @@ namespace Titan.ViewModels
             }
             else // Voltage
             {
-                for (int i = 0; i < velocityInRangeEntries.Count; i++)
+                for (int i = 0; i < voltageInRangeEntries.Count; i++)
                 {
-                    var entry = positionInRangeEntries[i];
+                    var entry = voltageInRangeEntries[i];
                     var frame = new double[4];
 
-                    frame[0] = entry.Item1;
-                    frame[1] = entry.Item1;
+                    frame[0] = entry.Item1 * 0.001;
+                    frame[1] = entry.Item2;
                     frame[2] = positionInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated position value
                     frame[3] = velocityInRangeEntries.GetInterpolatedValue(entry.Item1);
 
