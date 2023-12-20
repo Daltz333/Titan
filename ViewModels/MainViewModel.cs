@@ -11,11 +11,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Titan.DataConverters;
 using Titan.Models;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using Titan.Utilities.Extensions;
 
 namespace Titan.ViewModels
 {
@@ -51,86 +50,29 @@ namespace Titan.ViewModels
                 return;
             }
 
-            Dictionary<string, object> rootJson = new();
-            rootJson.Add("sysid", true);
-            rootJson.Add("test", "Simple");
-            rootJson.Add("units", "Rotations");
-            rootJson.Add("unitsPerRotation", 1.0);
-
-            var staterecord = strings.FirstOrDefault(p => p.Name == "State");
-            var velocityrecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Velocity").Name);
-            var positionrecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Position").Name);
-            var voltagerecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Voltage").Name);
-
-            if (staterecord.Values.Count > 0)
+            Dictionary<string, object> rootJson = new()
             {
-                var allentries = new Dictionary<string, List<double[]>>();
-                var values = staterecord.Values.OrderBy(p => p.Item1).ToList();
+                { "sysid", true },
+                { "test", "Simple" },
+                { "units", "Rotations" },
+                { "unitsPerRotation", 1.0 }
+            };
 
-                bool hasSetDynamicForward = false;
-                bool hasSetDynamicReverse = false;
-                bool hasSetQuasiForward = false;
-                bool hasSetQuasiReverse = false;
+            var stateRecord = strings.FirstOrDefault(p => p.Name == "State");
+            var velocityRecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Velocity").Name);
+            var positionRecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Position").Name);
+            var voltageRecord = doubles.FirstOrDefault(p => p.Name == Records.First(p => p.SelectedRecordType == "Voltage").Name);
 
-                int i = 0;
-                foreach (var record in values)
-                {
+            if (stateRecord.Values.Count > 0)
+            {
+                var dataEntries = new EntryContainer(velocityRecord.Values, positionRecord.Values, voltageRecord.Values);
 
-                    var voltage = voltagerecord.Values.Aggregate((x, y) => Math.Abs(x.Item1 - record.Item1) < Math.Abs(y.Item1 - record.Item1) ? x : y).Item2;
-                    var timestamp = record.Item1;
-
-                    var entry = new double[4];
-                    entry[0] = (double)timestamp * 0.001; // item 1 is timestamp
-                    entry[1] = voltage * 12;
-                    entry[2] = positionrecord.Values.Aggregate((x, y) => Math.Abs(x.Item1 - record.Item1) < Math.Abs(y.Item1 - record.Item1) ? x : y).Item2;
-                    entry[3] = velocityrecord.Values.Aggregate((x, y) => Math.Abs(x.Item1 - record.Item1) < Math.Abs(y.Item1 - record.Item1) ? x : y).Item2;
-
-                    if (record.Item2 == "dynam" && voltage > 0)
-                    {
-                        if (!hasSetDynamicForward)
-                        {
-                            hasSetDynamicForward = true;
-                            allentries.Add("fast-forward", new());
-                        }
-
-                        allentries["fast-forward"].Add(entry);
-                    } else if (record.Item2 == "dynam" && voltage < 0)
-                    {
-                        if (!hasSetDynamicReverse)
-                        {
-                            hasSetDynamicReverse = true;
-                            allentries.Add("fast-backward", new());
-                        }
-
-                        allentries["fast-backward"].Add(entry);
-                    } else if (record.Item2 == "quasi" && voltage > 0)
-                    {
-                        if (!hasSetQuasiForward)
-                        {
-                            hasSetQuasiForward = true;
-                            allentries.Add("slow-forward", new());
-                        }
-
-                        allentries["slow-forward"].Add(entry);
-                    } else if (record.Item2 == "quasi" && voltage < 0)
-                    {
-                        if (!hasSetQuasiReverse)
-                        {
-                            hasSetQuasiReverse = true;
-                            allentries.Add("slow-backward", new());
-                        }
-
-                        allentries["slow-backward"].Add(entry);
-                    }
-
-                    i++;
-                }
-
-                foreach (var entry in allentries)
-                {
-                    rootJson.Add(entry.Key, entry.Value);
-                }
-            } else
+                rootJson["fast-forward"] = GetTestFrames("dynamic-forward", stateRecord.Values, dataEntries);
+                rootJson["fast-backward"] = GetTestFrames("fast-backward", stateRecord.Values, dataEntries);
+                rootJson["slow-forward"] = GetTestFrames("slow-forward", stateRecord.Values, dataEntries);
+                rootJson["slow-backward"] = GetTestFrames("slow-backward", stateRecord.Values, dataEntries);
+            }
+            else
             {
                 var box = MessageBoxManager.GetMessageBoxStandard("State record is missing", "State record is missing, please verify you have selected a valid characterization datalog.");
                 _ = await box.ShowAsync();
@@ -141,16 +83,19 @@ namespace Titan.ViewModels
             // Get top level from the current control. Alternatively, you can use Window reference instead.
             var topLevel = TopLevel.GetTopLevel(MainWindow.Instance);
 
-            // Start async operation to open the dialog.
-            var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            if (topLevel != null)
             {
-                Title = "Save SysID Json"
-            });
+                // Start async operation to open the dialog.
+                var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = "Save SysID Json"
+                });
 
-            if (file is not null)
-            {
-                await using FileStream createStream = File.Create(file.Path.AbsolutePath);
-                await JsonSerializer.SerializeAsync(createStream, rootJson);
+                if (file is not null)
+                {
+                    await using FileStream createStream = File.Create(file.Path.AbsolutePath);
+                    await JsonSerializer.SerializeAsync(createStream, rootJson);
+                }
             }
         }
 
@@ -186,6 +131,73 @@ namespace Titan.ViewModels
             }
 
             AnalyzeFile();
+        }
+
+        private List<double[]> GetTestFrames(string testname, List<(long, string)> stateEntries, EntryContainer dataEntries)
+        {
+            var frames = new List<double[]>();
+
+            var testStateEntries = stateEntries.OrderBy(p => p.Item1).Where(p => p.Item2 == testname).ToList();
+
+            long minTimestamp = testStateEntries.FirstOrDefault().Item1;
+            long maxTimestamp = testStateEntries.LastOrDefault().Item1;
+
+            var velocityInRangeEntries = dataEntries.VelocityEntries.Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
+            var positionInRangeEntries = dataEntries.PositionEntries.Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
+            var voltageInRangeEntries = dataEntries.VoltageEntries.Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
+
+            var velocityAvgDelta = velocityInRangeEntries.Select(p => p.Item1).AverageDifference();
+            var positionAvgDelta = positionInRangeEntries.Select(p => p.Item1).AverageDifference();
+            var voltageAvgDelta = voltageInRangeEntries.Select(p => p.Item1).AverageDifference();
+
+            // Compute based on smallest delta. Is velocity the smallest
+            if (velocityAvgDelta < positionAvgDelta && velocityAvgDelta < voltageAvgDelta)
+            {
+                for (int i = 0; i < velocityInRangeEntries.Count; i++)
+                {
+                    var entry = velocityInRangeEntries[i];
+                    var frame = new double[4];
+
+                    frame[0] = entry.Item1; // set timestamp equal to our most frequent signal
+                    frame[1] = voltageInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated voltage value
+                    frame[2] = positionInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated position value
+                    frame[3] = entry.Item1; // no need to interpolate, this is our time base
+
+                    frames.Add(frame);
+                }
+            }
+            else if (positionAvgDelta < voltageAvgDelta && positionAvgDelta < velocityAvgDelta) // Position?
+            {
+                for (int i = 0; i < positionInRangeEntries.Count; i++)
+                {
+                    var entry = positionInRangeEntries[i];
+                    var frame = new double[4];
+
+                    frame[0] = entry.Item1;
+                    frame[1] = voltageInRangeEntries.GetInterpolatedValue(entry.Item1);
+                    frame[2] = entry.Item1; // get interpolated position value
+                    frame[3] = velocityInRangeEntries.GetInterpolatedValue(entry.Item1);
+
+                    frames.Add(frame);
+                }
+            }
+            else // Voltage
+            {
+                for (int i = 0; i < velocityInRangeEntries.Count; i++)
+                {
+                    var entry = positionInRangeEntries[i];
+                    var frame = new double[4];
+
+                    frame[0] = entry.Item1;
+                    frame[1] = entry.Item1;
+                    frame[2] = positionInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated position value
+                    frame[3] = velocityInRangeEntries.GetInterpolatedValue(entry.Item1);
+
+                    frames.Add(frame);
+                }
+            }
+
+            return frames;
         }
 
         private void AnalyzeFile()
