@@ -25,7 +25,7 @@ namespace Titan.DataConverters
         public DataLogRecord(int entry, long timestamp, ReadOnlyMemory<byte> data)
         {
             Entry = entry;
-            Timestamp = (long)(timestamp * 0.001);
+            Timestamp = timestamp;
             Data = data;
             ReadData = new MemoryStream(data.ToArray());
         }

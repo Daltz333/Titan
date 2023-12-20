@@ -188,7 +188,7 @@ namespace Titan.ViewModels
                     var entry = voltageInRangeEntries[i];
                     var frame = new double[4];
 
-                    frame[0] = entry.Item1 * 0.001;
+                    frame[0] = entry.Item1 * 0.000001;
                     frame[1] = entry.Item2;
                     frame[2] = positionInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated position value
                     frame[3] = velocityInRangeEntries.GetInterpolatedValue(entry.Item1);
