@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace Titan.DataConverters
 {
-    public class DataLogReader : IDisposable
+    public class DataLogReader
     {
-        private readonly MemoryStream BufferStream;
         private readonly ReadOnlyMemory<byte> Buffer;
 
         public delegate void ProgressChangedEventHandler(object sender, ProgressChangedEventArgs e);
@@ -22,7 +19,6 @@ namespace Titan.DataConverters
             TotalSizeBytes = new FileInfo(filename).Length;
 
             Buffer = File.ReadAllBytes(filename);
-            BufferStream = new MemoryStream(Buffer.ToArray());
         }
 
         /// <summary>
@@ -41,24 +37,24 @@ namespace Titan.DataConverters
 
             var buffer = new byte[4];
             using MemoryStream stream = new MemoryStream(Buffer.Slice(6, 4).ToArray());
-            stream.Read(buffer, 0, 4);
+            _ = stream.Read(buffer, 0, 4);
 
             return headerMatch && (BitConverter.ToInt16(buffer, 0) >= 0x0100);
         }
 
         public Version GetVersion()
         {
-            if (BufferStream.Remaining() < 12)
+            if (Buffer.Length < 12)
             {
                 return new();
             }
 
-            var versionbytes = Buffer.Slice(6, 2).Span;
+            var versionBytes = Buffer.Slice(6, 2).Span;
             var versionMajor = new byte[8];
-            versionMajor[0] = versionbytes[1];
+            versionMajor[0] = versionBytes[1];
 
             var versionMinor = new byte[8];
-            versionMinor[0] = versionbytes[0];
+            versionMinor[0] = versionBytes[0];
 
             return new Version(BitConverter.ToInt32(versionMajor), BitConverter.ToInt32(versionMinor));
         }
@@ -69,14 +65,8 @@ namespace Titan.DataConverters
         /// <returns>Extra header data</returns>
         public string GetExtraHeader()
         {
-            using MemoryStream stream = new MemoryStream(Buffer.ToArray());
-            stream.Position = 8;
-            int size = stream.ReadInt();
-
-            var buffer = new byte[size];
-            stream.Read(buffer, 0, buffer.Length);
-
-            return Encoding.UTF8.GetString(buffer);
+            int size = BitConverter.ToInt32(Buffer.Slice(8, 4).ToArray());
+            return Encoding.UTF8.GetString(Buffer.Slice(12, size).ToArray());
         }
 
         private DataLogRecord GetRecord(int position)
@@ -100,7 +90,7 @@ namespace Titan.DataConverters
             long val = 0;
             for (int i = 0; i < len; i++)
             {
-                val |= ((long) (Buffer.Span[pos + i]) & 0xff) << (i * 8);
+                val |= ((long)(Buffer.Span[pos + i]) & 0xff) << (i * 8);
             }
 
             return val;
@@ -124,8 +114,7 @@ namespace Titan.DataConverters
 
         public List<DataLogRecord> GetRecords()
         {
-            BufferStream.Position = 8;
-            int pos = 12 + BufferStream.ReadInt();
+            int pos = 12 + BitConverter.ToInt32(Buffer.Slice(8, 4).ToArray());
             var records = new List<DataLogRecord>();
 
             while (true)
@@ -136,7 +125,8 @@ namespace Titan.DataConverters
                 {
                     pos = GetNextRecord(pos);
                     record = GetRecord(pos);
-                } catch (IndexOutOfRangeException)
+                }
+                catch (IndexOutOfRangeException)
                 {
                     break;
                 }
@@ -150,11 +140,6 @@ namespace Titan.DataConverters
             }
 
             return records;
-        }
-
-        public void Dispose()
-        {
-            BufferStream.Dispose();
         }
 
         public class ProgressChangedEventArgs(double progress)

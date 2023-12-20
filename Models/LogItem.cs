@@ -10,7 +10,6 @@ namespace Titan.Models
     public partial class LogItem(string name, bool isSelected) : ObservableObject
     {
         public string Name { get; set; } = name;
-        public bool IsSelected { get; set; } = isSelected;
 
         [ObservableProperty]
         private bool _IsVisible = true;

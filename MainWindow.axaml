@@ -9,9 +9,12 @@
     Title="Titan"
     Width="800"
     Height="500"
+    MinWidth="600"
+    MinHeight="400"
     d:DesignHeight="500"
     d:DesignWidth="800"
     FontFamily="{StaticResource MaterialFont}"
+    Icon="/Assets/AppIcon.png"
     mc:Ignorable="d">
 
     <Window.Resources>

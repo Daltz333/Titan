@@ -2,11 +2,15 @@
     x:Class="Titan.App"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
     RequestedThemeVariant="Default">
     <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
 
     <Application.Styles>
-        <FluentTheme />
+        <themes:MaterialTheme
+            BaseTheme="Dark"
+            PrimaryColor="Green"
+            SecondaryColor="Lime" />
     </Application.Styles>
     <Application.Resources>
         <FontFamily x:Key="MaterialFont">/Assets/Fonts/Roboto-Medium.ttf</FontFamily>

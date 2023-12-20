@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using CommunityToolkit.HighPerformance.Streams;
 
 namespace Titan.DataConverters
 {
-    public class DataLogRecord : IDisposable
+    public class DataLogRecord
     {
         private const int kControlStart = 0;
         private const int kControlFinish = 1;
@@ -16,18 +12,17 @@ namespace Titan.DataConverters
 
         public int Entry { get; private set; } = 0;
         public long Timestamp { get; private set; } = 0;
-        public int Size { get => Data.Length; }
+        public int Size { get => Buffer.Length; }
 
-        private ReadOnlyMemory<byte> Data;
+        private ReadOnlyMemory<byte> Buffer;
 
-        private MemoryStream ReadData;
+        private int BytePosition = 0;
 
         public DataLogRecord(int entry, long timestamp, ReadOnlyMemory<byte> data)
         {
             Entry = entry;
             Timestamp = timestamp;
-            Data = data;
-            ReadData = new MemoryStream(data.ToArray());
+            Buffer = data;
         }
 
         /// <summary>
@@ -46,7 +41,7 @@ namespace Titan.DataConverters
         /// <returns>True if start control record, false otherwise</returns>
         public bool IsStart()
         {
-            return Entry == 0 && Data.Length >= 16 && Data.Span[0] == kControlStart;
+            return Entry == 0 && Buffer.Length >= 16 && Buffer.Span[0] == kControlStart;
         }
 
         /// <summary>
@@ -56,7 +51,7 @@ namespace Titan.DataConverters
         /// <returns>True if finish control record, false otherwise</returns>
         public bool IsFinish()
         {
-            return Entry == 0 && Data.Length >= 5 && Data.Span[0] == kControlFinish;
+            return Entry == 0 && Buffer.Length >= 5 && Buffer.Span[0] == kControlFinish;
         }
 
         /// <summary>
@@ -66,7 +61,7 @@ namespace Titan.DataConverters
         /// <returns>True if set metadata control record, false otherwise</returns>
         public bool IsSetMetadata()
         {
-            return Entry == 0 && Data.Length >= 9 && Data.Span[0] == kControlSetMetadata;
+            return Entry == 0 && Buffer.Length >= 9 && Buffer.Span[0] == kControlSetMetadata;
         }
 
         /// <summary>
@@ -81,13 +76,18 @@ namespace Titan.DataConverters
                 throw new InvalidOperationException($"Called {nameof(GetStartData)} on an incorrect record type.");
             }
 
-            using var stream = new MemoryStream(Data.ToArray());
+            int entry = BitConverter.ToInt32(Buffer.Slice(1, 4).ToArray());
 
-            stream.Position = 1; // skip over control type
-            int entry = stream.ReadInt();
-            string name = stream.ReadInnerString();
-            string type = stream.ReadInnerString();
-            string metadata = stream.ReadInnerString();
+            int nameSize = BitConverter.ToInt32(Buffer.Slice(1 + 4, 4).ToArray());
+            string name = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4, nameSize).ToArray());
+
+            int typeSize = BitConverter.ToInt32(Buffer.Slice(1 + 4 + 4 + nameSize, 4).ToArray());
+            string type = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4 + nameSize + 4, typeSize).ToArray());
+
+            int metadataSize = BitConverter.ToInt32(Buffer.Slice(1 + 4 + 4 + nameSize + 4 + typeSize, 4).ToArray());
+            string metadata = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4 + nameSize + 4 + typeSize + 4, metadataSize).ToArray());
+
+            BytePosition = 1 + 4 + 4 + nameSize + 4 + typeSize + 4 + metadataSize;
 
             return new StartRecordData(entry, name, type, metadata);
         }
@@ -99,51 +99,57 @@ namespace Titan.DataConverters
                 throw new InvalidOperationException($"Called {nameof(GetSetMetadataData)} on an incorrect record type.");
             }
 
-            using var stream = new MemoryStream(Data.ToArray());
+            using var stream = new MemoryStream(Buffer.ToArray());
 
-            stream.Position = 1; // skip over control type
-            int entry = stream.ReadInt();
-            string metadata = stream.ReadInnerString();
+            int entry = BitConverter.ToInt32(Buffer.Slice(1, 4).ToArray());
+
+            int metadataSize = BitConverter.ToInt32(Buffer.Slice(1 + 4, 4).ToArray());
+            string metadata = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4, metadataSize).ToArray());
+
+            BytePosition = 1 + 4 + 4 + metadataSize;
 
             return new MetadataRecordData(entry, metadata);
         }
 
         public bool GetBoolean()
         {
-            return ReadData.ReadByte() != 0;
+            var res = Buffer.Span[BytePosition] != 0;
+            BytePosition += 1;
+            return res;
         }
 
-        public int GetInteger()
+        public long GetInteger()
         {
-            return ReadData.ReadInt();
+            var res = BitConverter.ToInt64(Buffer.Slice(BytePosition, 8).ToArray());
+            BytePosition += 8;
+            return res;
         }
 
         public double GetDouble()
         {
-            return ReadData.ReadDouble();
+            var res = BitConverter.ToInt32(Buffer.Slice(BytePosition, 8).ToArray());
+            BytePosition += 8;
+            return res;
         }
 
         public string GetString()
         {
-            int remainingData = (int)(ReadData.Length - ReadData.Position);
-
-            var buffer = new byte[remainingData];
-            ReadData.ReadExactly(buffer, 0, remainingData);
-
-            return Encoding.UTF8.GetString(buffer);
+            var res = Encoding.UTF8.GetString(Buffer.Slice(BytePosition).ToArray());
+            BytePosition = Buffer.Length;
+            return res;
         }
 
         public bool[] GetBoolArray()
         {
-            var arr = new bool[ReadData.Remaining()];
+            var arr = new bool[Buffer.Length - BytePosition];
 
             int i = 0;
-            while (ReadData.Remaining() >= 0)
+            while (Buffer.Length - BytePosition >= 0)
             {
-                var fnd = BitConverter.ToBoolean(Data.ToArray(), ReadData.Remaining());
-                ReadData.Position += 2;
-                arr[i] = fnd;
+                arr[i] = Buffer.Slice(BytePosition).Span[i] != 0;
                 i++;
+
+                BytePosition += 1;
             }
 
             return arr;
@@ -151,15 +157,15 @@ namespace Titan.DataConverters
 
         public long[] GetIntegerArray()
         {
-            var arr = new long[ReadData.Remaining()];
+            var arr = new long[Buffer.Length - BytePosition];
 
             int i = 0;
-            while (ReadData.Remaining() >= 0)
+            while (Buffer.Length - BytePosition >= 0)
             {
-                var fnd = BitConverter.ToInt64(Data.ToArray(), ReadData.Remaining());
-                ReadData.Position += 2;
-                arr[i] = fnd;
+                arr[i] = BitConverter.ToInt64(Buffer.Slice(BytePosition, 8).ToArray());
                 i++;
+
+                BytePosition += 8;
             }
 
             return arr;
@@ -167,15 +173,15 @@ namespace Titan.DataConverters
 
         public double[] GetDoubleArray()
         {
-            var arr = new double[ReadData.Remaining()];
+            var arr = new double[Buffer.Length - BytePosition];
 
             int i = 0;
-            while (ReadData.Remaining() >= 0)
+            while (Buffer.Length - BytePosition >= 0)
             {
-                var fnd = BitConverter.ToDouble(Data.ToArray(), ReadData.Remaining());
-                ReadData.Position += 2;
-                arr[i] = fnd;
+                arr[i] = BitConverter.ToInt64(Buffer.Slice(BytePosition, 8).ToArray());
                 i++;
+
+                BytePosition += 8;
             }
 
             return arr;
@@ -183,22 +189,19 @@ namespace Titan.DataConverters
 
         public string[] GetStringArray()
         {
-            var arr = new string[ReadData.Remaining()];
+            var arr = new string[Buffer.Length - BytePosition];
 
             int i = 0;
-            while (ReadData.Remaining() >= 0)
+            while (Buffer.Length - BytePosition >= 0)
             {
-                var fnd = ReadData.ReadInnerString();
-                arr[i] = fnd;
+                var strSize = BitConverter.ToInt32(Buffer.Slice(BytePosition, 4).ToArray());
+                arr[i] = Encoding.UTF8.GetString(Buffer.Slice(BytePosition + 4, strSize).ToArray());
                 i++;
+
+                BytePosition += BytePosition + 4 + strSize;
             }
 
             return arr;
-        }
-
-        public void Dispose()
-        {
-            ReadData.Dispose();
         }
 
         public class StartRecordData

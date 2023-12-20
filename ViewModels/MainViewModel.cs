@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MsBox.Avalonia;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -40,15 +41,7 @@ namespace Titan.ViewModels
         [RelayCommand]
         private async Task ConvertToSysIdJson()
         {
-            var selectedrecords = Records.Where(p => p.IsSelected).ToList();
-
-            if (selectedrecords.Count == 0)
-            {
-                var box = MessageBoxManager.GetMessageBoxStandard("No data is selected", "Please select supply voltage, position, and velocity for characterized mechanisms");
-                _ = await box.ShowAsync();
-
-                return;
-            }
+            Log.Information("Beginning Log Conversion.");
 
             Dictionary<string, object> rootJson = new()
             {
@@ -63,6 +56,58 @@ namespace Titan.ViewModels
             var positionRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Position")?.Name);
             var voltageRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Voltage")?.Name);
 
+            if (stateRecord.Id == 0)
+            {
+                Log.Warning("State record is missing.");
+
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "State record is missing",
+                    "State record is missing, please verify you have selected a valid characterization datalog.",
+                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                return;
+            }
+
+            if (velocityRecord.Id == 0)
+            {
+                Log.Information("Velocity signal is not selected or missing.");
+
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Velocity signal is missing",
+                    "Velocity is missing, please verify you have selected a signal as the Velocity signal.",
+                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                return;
+            }
+
+            if (positionRecord.Id == 0)
+            {
+                Log.Information("Position signal is not selected or missing.");
+
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Position signal is missing",
+                    "Position is missing, please verify you have selected a signal as the Position signal.",
+                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                return;
+            }
+
+            if (voltageRecord.Id == 0)
+            {
+                Log.Information("Voltage signal is not selected or missing.");
+
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Voltage signal is missing",
+                    "Voltage is missing, please verify you have selected a signal as the Voltage signal.",
+                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                return;
+            }
+
             if (stateRecord.Values.Count > 0)
             {
                 var dataEntries = new EntryContainer(velocityRecord.Values, positionRecord.Values, voltageRecord.Values);
@@ -74,8 +119,12 @@ namespace Titan.ViewModels
             }
             else
             {
-                var box = MessageBoxManager.GetMessageBoxStandard("State record is missing", "State record is missing, please verify you have selected a valid characterization datalog.");
-                _ = await box.ShowAsync();
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "State record is missing",
+                    "State record is missing, please verify you have selected a valid characterization datalog.",
+                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
 
                 return;
             }
@@ -135,6 +184,8 @@ namespace Titan.ViewModels
 
         private List<double[]> GetTestFrames(string testname, List<(long, string)> stateEntries, EntryContainer dataEntries)
         {
+            Log.Information($"Retrieving test frames for {testname}.");
+
             var frames = new List<double[]>();
 
             var testStateEntries = stateEntries.OrderBy(p => p.Item1).Where(p => p.Item2 == testname).ToList();
@@ -142,13 +193,20 @@ namespace Titan.ViewModels
             long minTimestamp = testStateEntries.FirstOrDefault().Item1;
             long maxTimestamp = testStateEntries.LastOrDefault().Item1;
 
-            var velocityInRangeEntries = dataEntries.VelocityEntries.Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
-            var positionInRangeEntries = dataEntries.PositionEntries.Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
-            var voltageInRangeEntries = dataEntries.VoltageEntries.Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
+            var velocityInRangeEntries = dataEntries.VelocityEntries
+                .Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
+            var positionInRangeEntries = dataEntries.PositionEntries
+                .Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
+            var voltageInRangeEntries = dataEntries.VoltageEntries
+                .Where(p => p.Item1 > minTimestamp && p.Item1 < maxTimestamp).OrderBy(p => p.Item1).ToList();
 
             var velocityAvgDelta = velocityInRangeEntries.Select(p => p.Item1).AverageDifference();
             var positionAvgDelta = positionInRangeEntries.Select(p => p.Item1).AverageDifference();
             var voltageAvgDelta = voltageInRangeEntries.Select(p => p.Item1).AverageDifference();
+
+            Log.Information($"Velocity Avg Delta: {velocityAvgDelta}");
+            Log.Information($"Position Avg Delta: {positionAvgDelta}");
+            Log.Information($"Voltage Avg Delta: {voltageAvgDelta}");
 
             // Compute based on smallest delta. Is velocity the smallest
             if (velocityAvgDelta < positionAvgDelta && velocityAvgDelta < voltageAvgDelta)
@@ -197,11 +255,14 @@ namespace Titan.ViewModels
                 }
             }
 
+            Log.Information($"Built {frames.Count} frames.");
             return frames;
         }
 
         private void AnalyzeFile()
         {
+            Log.Information($"Importing datalog at {SelectedFilePath}.");
+
             SharedViewModel.Instance.IsGlobalBusy = true;
 
             Records.Clear();
@@ -222,6 +283,8 @@ namespace Titan.ViewModels
 
                         var records = datalogReader.GetRecords();
 
+                        Log.Information($"Datalog contains {records.Count} records");
+
                         foreach (var record in records)
                         {
                             if (record.IsStart())
@@ -237,7 +300,6 @@ namespace Titan.ViewModels
                                     strings.Add(new(data.Entry, data.Name));
                                 }
 
-
                                 if (!Records.Any(p => p.Name == data.Name))
                                 {
                                     Records.Add(new(data.Name, false));
@@ -245,12 +307,12 @@ namespace Titan.ViewModels
                             }
                             else if (record.IsSetMetadata())
                             {
-                                Debug.WriteLine("Record is metadata record");
+                                Log.Information("Record is metadata record");
                                 var data = record.GetSetMetadataData();
                             }
                             else if (record.IsFinish())
                             {
-                                Debug.WriteLine("Record is finish record");
+                                Log.Information("Record is finish record");
                             }
                             else
                             {
@@ -269,16 +331,37 @@ namespace Titan.ViewModels
                                 }
                             }
                         }
+
+                        Log.Information("Finished importing all records.");
+                    } else
+                    {
+                        Log.Warning("Invalid file selected as datalog.");
+
+                        Dispatcher.UIThread.Invoke(new Action(async () =>
+                        {
+                            var box = MessageBoxManager.GetMessageBoxStandard(
+                                "Invalid datalog",
+                                $"The selected file could not be parsed as a datalog.",
+                                windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                            _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                        }));
                     }
 
                     datalogReader.ProgressChanged -= DatalogReader_ProgressChanged;
                 }
                 catch (Exception ex)
                 {
+                    Log.Error(ex, "Exception occurred during datalog import.");
+
                     Dispatcher.UIThread.Invoke(new Action(async () =>
                     {
-                        var box = MessageBoxManager.GetMessageBoxStandard("Exception occurred", $"An exception occurred while analyzing datalog. \n\n {ex.Message}");
-                        _ = await box.ShowAsync();
+                        var box = MessageBoxManager.GetMessageBoxStandard(
+                            "Exception occurred",
+                            $"An exception occurred while importing datalog. \n\n {ex.Message}",
+                            windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                        _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
                     }));
                 }
 

@@ -19,14 +19,20 @@
             Grid.Column="0"
             ColumnDefinitions="*, auto"
             RowDefinitions="auto, *">
-            <TextBox
-                Height="20"
-                HorizontalAlignment="Stretch"
-                VerticalContentAlignment="Center"
-                FontSize="10"
-                IsReadOnly="True"
-                Text="{Binding SelectedFilePath}"
-                Watermark="Select datalog with browse..." />
+            <Border
+                Padding="5"
+                BorderBrush="#7c7c7c"
+                BorderThickness="2">
+                <TextBox
+                    Height="20"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    FontSize="10"
+                    IsReadOnly="True"
+                    Text="{Binding SelectedFilePath}"
+                    Watermark="Select datalog with browse..." />
+            </Border>
             <Button
                 Grid.Column="1"
                 Margin="5,0,0,0"
@@ -39,58 +45,92 @@
                 Grid.ColumnSpan="2"
                 RowDefinitions="auto, auto, *">
                 <StackPanel>
-                    <ProgressBar
-                        Margin="0,10,0,0"
-                        Foreground="Green"
-                        Maximum="100"
-                        Minimum="0"
-                        Value="{Binding Progress}" />
                     <TextBlock
-                        Margin="0,5,0,0"
+                        Margin="0,10,0,0"
                         HorizontalAlignment="Center"
                         FontSize="10">
                         <Run Text="Progress: " />
                         <Run Text="{Binding Progress}" />
                         <Run Text="%" />
                     </TextBlock>
+                    <ProgressBar
+                        Margin="0,10,0,0"
+                        Background="#FF4a4a4a"
+                        Foreground="Green"
+                        Maximum="100"
+                        Minimum="0"
+                        Value="{Binding Progress}" />
                 </StackPanel>
-                <TextBox
+                <Border
                     Grid.Row="1"
-                    FontSize="12"
-                    TextChanged="TextBox_TextChanged"
-                    Watermark="Search..." />
-                <ScrollViewer Grid.Row="2" Margin="0,5,0,10">
-                    <ItemsControl
-                        Grid.Row="2"
-                        VerticalAlignment="Stretch"
-                        ItemsSource="{Binding Records}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="models:LogItem">
-                                <Grid
-                                    Height="35"
-                                    ColumnDefinitions="*, auto, 50"
-                                    IsVisible="{Binding IsVisible}">
-                                    <TextBlock
-                                        VerticalAlignment="Center"
-                                        FontSize="12"
-                                        Text="{Binding Name}"
-                                        TextWrapping="NoWrap"
-                                        ToolTip.Tip="{Binding Name}" />
-                                    <ComboBox
-                                        Grid.Column="1"
-                                        Width="100"
-                                        ItemsSource="{Binding AvailableSignalTypes}"
-                                        SelectedItem="{Binding SelectedRecordType}" />
-                                    <CheckBox
-                                        Grid.Column="2"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Center"
-                                        IsChecked="{Binding IsSelected}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                    Margin="0,10,0,0"
+                    Padding="5"
+                    BorderBrush="Green"
+                    BorderThickness="2"
+                    CornerRadius="5">
+                    <TextBox
+                        Height="25"
+                        FontSize="12"
+                        TextChanged="TextBox_TextChanged"
+                        Watermark="Search..." />
+                </Border>
+                <Border
+                    Grid.Row="2"
+                    Margin="0,10,0,0"
+                    Padding="5"
+                    BorderBrush="#4a4a4a"
+                    BorderThickness="2">
+                    <ScrollViewer Grid.Row="2">
+                        <ItemsControl
+                            Grid.Row="2"
+                            Margin="0,0,10,0"
+                            VerticalAlignment="Stretch"
+                            ItemsSource="{Binding Records}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:LogItem">
+                                    <Grid
+                                        Height="35"
+                                        Margin="0,5,0,0"
+                                        ColumnDefinitions="175, *"
+                                        IsVisible="{Binding IsVisible}">
+                                        <TextBlock
+                                            Grid.Column="0"
+                                            Margin="0,0,0,0"
+                                            VerticalAlignment="Center"
+                                            FontSize="12"
+                                            Text="{Binding Name}"
+                                            TextWrapping="NoWrap"
+                                            ToolTip.Tip="{Binding Name}" />
+                                        <Border
+                                            Grid.Column="1"
+                                            Width="100"
+                                            Padding="0,0,0,0"
+                                            BorderBrush="#4a4a4a"
+                                            BorderThickness="2"
+                                            CornerRadius="3"
+                                            ToolTip.Tip="{Binding SelectedRecordType}">
+                                            <ComboBox
+                                                Width="100"
+                                                Height="25"
+                                                Padding="0"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                FontSize="12"
+                                                ItemsSource="{Binding AvailableSignalTypes}"
+                                                SelectedItem="{Binding SelectedRecordType}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock VerticalAlignment="Center" Text="{Binding StringFormat=' {0} '}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
             </Grid>
         </Grid>
         <StackPanel Grid.Column="1" Margin="10">
@@ -109,12 +149,34 @@
                 TextWrapping="Wrap" />
             <TextBlock Margin="0,5,0,0" Text="3. Press the Convert button below" />
 
+            <Border
+                Height="100"
+                Margin="0,20,0,0"
+                Padding="10"
+                BorderBrush="#4a4a4a"
+                BorderThickness="2"
+                CornerRadius="5">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold" Text="Note" />
+                    <TextBlock
+                        Margin="0,5,0,0"
+                        Text="Currently only simple mechanisms are supported. Drivetrain type mechanisms are not supported. Additionally, this application assumes that velocity and rotation units are 1:1."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
             <Button
-                Margin="0,10,0,0"
+                Margin="0,20,0,0"
                 HorizontalAlignment="Right"
                 Command="{Binding ConvertToSysIdJsonCommand}">
                 <TextBlock Text="Convert" />
             </Button>
         </StackPanel>
+        <TextBlock
+            Grid.Column="1"
+            Margin="0,0,10,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Text="{x:Static models:AppProperties.AppBuildInformation}" />
     </Grid>
 </UserControl>

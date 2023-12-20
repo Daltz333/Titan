@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Serilog;
 using Titan.ViewModels;
 
 namespace Titan.Views;
@@ -9,6 +10,7 @@ public partial class MainView : UserControl
 {
     public MainView()
     {
+        Log.Information("Initialized application.");
         InitializeComponent();
     }
 
