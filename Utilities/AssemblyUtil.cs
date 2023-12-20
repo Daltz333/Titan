@@ -7,7 +7,7 @@ namespace Titan.Utilities
 {
     public static class AssemblyExtensions
     {
-        public static DateTime GetLinkerTime(this Assembly assembly, TimeZoneInfo target = null)
+        public static DateTime GetLinkerTime(this Assembly assembly, TimeZoneInfo? target = null)
         {
             const string BuildVersionMetadataPrefix = "+build";
 
