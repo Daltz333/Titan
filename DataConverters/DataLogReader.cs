@@ -5,21 +5,13 @@ using System.Text;
 
 namespace Titan.DataConverters
 {
-    public class DataLogReader
+    public class DataLogReader(string filename)
     {
-        private readonly ReadOnlyMemory<byte> Buffer;
+        private readonly ReadOnlyMemory<byte> Buffer = File.ReadAllBytes(filename);
 
         public delegate void ProgressChangedEventHandler(object sender, ProgressChangedEventArgs e);
         public event ProgressChangedEventHandler? ProgressChanged;
 
-        private readonly long TotalSizeBytes;
-
-        public DataLogReader(string filename)
-        {
-            TotalSizeBytes = new FileInfo(filename).Length;
-
-            Buffer = File.ReadAllBytes(filename);
-        }
 
         /// <summary>
         /// Returns true if the data log is valid (e.g. has a valid header)
@@ -27,36 +19,24 @@ namespace Titan.DataConverters
         /// <returns></returns>
         public bool IsValid()
         {
-            var headerMatch = Buffer.Length >= 12
-                && Buffer.Span[0] == (byte)'W'
-                && Buffer.Span[1] == (byte)'P'
-                && Buffer.Span[2] == (byte)'I'
-                && Buffer.Span[3] == (byte)'L'
-                && Buffer.Span[4] == (byte)'O'
-                && Buffer.Span[5] == (byte)'G';
+            var bufferSpan = Buffer.Span;
 
-            var buffer = new byte[4];
-            using MemoryStream stream = new MemoryStream(Buffer.Slice(6, 4).ToArray());
-            _ = stream.Read(buffer, 0, 4);
+            var headerMatch = bufferSpan.Length >= 12 && bufferSpan[..6].SequenceEqual("WPILOG"u8);
 
-            return headerMatch && (BitConverter.ToInt16(buffer, 0) >= 0x0100);
+            return headerMatch && (BitConverter.ToInt16(bufferSpan.Slice(6, 2)) >= 0x0100);
         }
 
         public Version GetVersion()
         {
-            if (Buffer.Length < 12)
+            var bufferSpan = Buffer.Span;
+
+            if (bufferSpan.Length < 12)
             {
                 return new();
             }
 
-            var versionBytes = Buffer.Slice(6, 2).Span;
-            var versionMajor = new byte[8];
-            versionMajor[0] = versionBytes[1];
-
-            var versionMinor = new byte[8];
-            versionMinor[0] = versionBytes[0];
-
-            return new Version(BitConverter.ToInt32(versionMajor), BitConverter.ToInt32(versionMinor));
+            var versionBytes = bufferSpan.Slice(6, 2);
+            return new Version(versionBytes[1], versionBytes[0]);
         }
 
         /// <summary>
@@ -65,13 +45,16 @@ namespace Titan.DataConverters
         /// <returns>Extra header data</returns>
         public string GetExtraHeader()
         {
-            int size = BitConverter.ToInt32(Buffer.Slice(8, 4).ToArray());
-            return Encoding.UTF8.GetString(Buffer.Slice(12, size).ToArray());
+            var bufferSpan = Buffer.Span;
+            int size = BitConverter.ToInt32(bufferSpan.Slice(8, 4));
+            return Encoding.UTF8.GetString(bufferSpan.Slice(12, size));
         }
 
         private DataLogRecord GetRecord(int position)
         {
-            int lenBytes = Buffer.Span[position] & 0xff;
+            var bufferSpan = Buffer.Span;
+
+            int lenBytes = bufferSpan[position] & 0xff;
             int entryLen = (lenBytes & 0x3) + 1;
             int sizeLen = ((lenBytes >> 2) & 0x3) + 1;
             int timestampLen = ((lenBytes >> 4) & 0x7) + 1;
@@ -87,10 +70,12 @@ namespace Titan.DataConverters
 
         private long ReadVarInt(int pos, int len)
         {
+            var bufferSpan = Buffer.Span;
+
             long val = 0;
             for (int i = 0; i < len; i++)
             {
-                val |= ((long)(Buffer.Span[pos + i]) & 0xff) << (i * 8);
+                val |= ((long)bufferSpan[pos + i] & 0xff) << (i * 8);
             }
 
             return val;
@@ -98,7 +83,9 @@ namespace Titan.DataConverters
 
         private int GetNextRecord(int pos)
         {
-            int lenbyte = Buffer.Span[pos] & 0xff;
+            var bufferSpan = Buffer.Span;
+
+            int lenbyte = bufferSpan[pos] & 0xff;
             int entryLen = (lenbyte & 0x3) + 1;
             int sizeLen = ((lenbyte >> 2) & 0x3) + 1;
             int timestampLen = ((lenbyte >> 4) & 0x7) + 1;
@@ -107,14 +94,15 @@ namespace Titan.DataConverters
             int size = 0;
             for (int i = 0; i < sizeLen; i++)
             {
-                size |= (Buffer.Span[(pos + 1 + entryLen + i)] & 0xff) << (i * 8);
+                size |= (bufferSpan[(pos + 1 + entryLen + i)] & 0xff) << (i * 8);
             }
             return pos + headerLen + size;
         }
 
         public List<DataLogRecord> GetRecords()
         {
-            int pos = 12 + BitConverter.ToInt32(Buffer.Slice(8, 4).ToArray());
+            var bufferSpan = Buffer.Span;
+            int pos = 12 + BitConverter.ToInt32(bufferSpan.Slice(8, 4));
             var records = new List<DataLogRecord>();
 
             while (true)
@@ -131,9 +119,9 @@ namespace Titan.DataConverters
                     break;
                 }
 
-                if (TotalSizeBytes > 0)
+                if (bufferSpan.Length > 0)
                 {
-                    ProgressChanged?.Invoke(this, new(Math.Round(((double)pos / TotalSizeBytes), 2)));
+                    ProgressChanged?.Invoke(this, new(Math.Round((double)pos / bufferSpan.Length, 2)));
                 }
 
                 records.Add(record);
@@ -142,9 +130,6 @@ namespace Titan.DataConverters
             return records;
         }
 
-        public class ProgressChangedEventArgs(double progress)
-        {
-            public double Progress { get; private set; } = progress;
-        }
+        public record struct ProgressChangedEventArgs(double Progress);
     }
 }
