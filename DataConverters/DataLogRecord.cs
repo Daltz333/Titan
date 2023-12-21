@@ -4,26 +4,20 @@ using System.Text;
 
 namespace Titan.DataConverters
 {
-    public class DataLogRecord
+    public class DataLogRecord(int entry, long timestamp, ReadOnlyMemory<byte> data)
+
     {
         private const int kControlStart = 0;
         private const int kControlFinish = 1;
         private const int kControlSetMetadata = 2;
 
-        public int Entry { get; private set; } = 0;
-        public long Timestamp { get; private set; } = 0;
+        public int Entry { get; private set; } = entry;
+        public long Timestamp { get; private set; } = timestamp;
         public int Size { get => Buffer.Length; }
 
-        private ReadOnlyMemory<byte> Buffer;
+        private readonly ReadOnlyMemory<byte> Buffer = data;
 
         private int BytePosition = 0;
-
-        public DataLogRecord(int entry, long timestamp, ReadOnlyMemory<byte> data)
-        {
-            Entry = entry;
-            Timestamp = timestamp;
-            Buffer = data;
-        }
 
         /// <summary>
         /// Returns true if the record is a control record.
@@ -76,16 +70,18 @@ namespace Titan.DataConverters
                 throw new InvalidOperationException($"Called {nameof(GetStartData)} on an incorrect record type.");
             }
 
-            int entry = BitConverter.ToInt32(Buffer.Slice(1, 4).ToArray());
+            var bufferSpan = Buffer.Span;
 
-            int nameSize = BitConverter.ToInt32(Buffer.Slice(1 + 4, 4).ToArray());
-            string name = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4, nameSize).ToArray());
+            int entry = BitConverter.ToInt32(bufferSpan.Slice(1, 4));
 
-            int typeSize = BitConverter.ToInt32(Buffer.Slice(1 + 4 + 4 + nameSize, 4).ToArray());
-            string type = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4 + nameSize + 4, typeSize).ToArray());
+            int nameSize = BitConverter.ToInt32(bufferSpan.Slice(1 + 4, 4));
+            string name = Encoding.UTF8.GetString(bufferSpan.Slice(1 + 4 + 4, nameSize));
 
-            int metadataSize = BitConverter.ToInt32(Buffer.Slice(1 + 4 + 4 + nameSize + 4 + typeSize, 4).ToArray());
-            string metadata = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4 + nameSize + 4 + typeSize + 4, metadataSize).ToArray());
+            int typeSize = BitConverter.ToInt32(bufferSpan.Slice(1 + 4 + 4 + nameSize, 4));
+            string type = Encoding.UTF8.GetString(bufferSpan.Slice(1 + 4 + 4 + nameSize + 4, typeSize));
+
+            int metadataSize = BitConverter.ToInt32(bufferSpan.Slice(1 + 4 + 4 + nameSize + 4 + typeSize, 4));
+            string metadata = Encoding.UTF8.GetString(bufferSpan.Slice(1 + 4 + 4 + nameSize + 4 + typeSize + 4, metadataSize));
 
             BytePosition = 1 + 4 + 4 + nameSize + 4 + typeSize + 4 + metadataSize;
 
@@ -99,12 +95,12 @@ namespace Titan.DataConverters
                 throw new InvalidOperationException($"Called {nameof(GetSetMetadataData)} on an incorrect record type.");
             }
 
-            using var stream = new MemoryStream(Buffer.ToArray());
+            var bufferSpan = Buffer.Span;
 
-            int entry = BitConverter.ToInt32(Buffer.Slice(1, 4).ToArray());
+            int entry = BitConverter.ToInt32(bufferSpan.Slice(1, 4));
 
-            int metadataSize = BitConverter.ToInt32(Buffer.Slice(1 + 4, 4).ToArray());
-            string metadata = Encoding.UTF8.GetString(Buffer.Slice(1 + 4 + 4, metadataSize).ToArray());
+            int metadataSize = BitConverter.ToInt32(bufferSpan.Slice(1 + 4, 4));
+            string metadata = Encoding.UTF8.GetString(bufferSpan.Slice(1 + 4 + 4, metadataSize));
 
             BytePosition = 1 + 4 + 4 + metadataSize;
 
@@ -120,21 +116,21 @@ namespace Titan.DataConverters
 
         public long GetInteger()
         {
-            var res = BitConverter.ToInt64(Buffer.Slice(BytePosition, 8).ToArray());
+            var res = BitConverter.ToInt64(Buffer.Span.Slice(BytePosition, 8));
             BytePosition += 8;
             return res;
         }
 
         public double GetDouble()
         {
-            var res = BitConverter.ToInt32(Buffer.Slice(BytePosition, 8).ToArray());
+            var res = BitConverter.Int64BitsToDouble(BitConverter.ToInt64(Buffer.Span.Slice(BytePosition, 8)));
             BytePosition += 8;
             return res;
         }
 
         public string GetString()
         {
-            var res = Encoding.UTF8.GetString(Buffer.Slice(BytePosition).ToArray());
+            var res = Encoding.UTF8.GetString(Buffer.Span[BytePosition..]);
             BytePosition = Buffer.Length;
             return res;
         }
@@ -142,11 +138,12 @@ namespace Titan.DataConverters
         public bool[] GetBoolArray()
         {
             var arr = new bool[Buffer.Length - BytePosition];
+            var bufferSpan = Buffer.Span;
 
             int i = 0;
             while (Buffer.Length - BytePosition >= 0)
             {
-                arr[i] = Buffer.Slice(BytePosition).Span[i] != 0;
+                arr[i] = bufferSpan[BytePosition] != 0;
                 i++;
 
                 BytePosition += 1;
@@ -158,11 +155,12 @@ namespace Titan.DataConverters
         public long[] GetIntegerArray()
         {
             var arr = new long[Buffer.Length - BytePosition];
+            var bufferSpan = Buffer.Span;
 
             int i = 0;
             while (Buffer.Length - BytePosition >= 0)
             {
-                arr[i] = BitConverter.ToInt64(Buffer.Slice(BytePosition, 8).ToArray());
+                arr[i] = BitConverter.ToInt64(bufferSpan.Slice(BytePosition, 8));
                 i++;
 
                 BytePosition += 8;
@@ -174,11 +172,12 @@ namespace Titan.DataConverters
         public double[] GetDoubleArray()
         {
             var arr = new double[Buffer.Length - BytePosition];
+            var bufferSpan = Buffer.Span;
 
             int i = 0;
             while (Buffer.Length - BytePosition >= 0)
             {
-                arr[i] = BitConverter.ToInt64(Buffer.Slice(BytePosition, 8).ToArray());
+                arr[i] = BitConverter.Int64BitsToDouble(BitConverter.ToInt64(bufferSpan.Slice(BytePosition, 8)));
                 i++;
 
                 BytePosition += 8;
@@ -190,81 +189,34 @@ namespace Titan.DataConverters
         public string[] GetStringArray()
         {
             var arr = new string[Buffer.Length - BytePosition];
+            var bufferSpan = Buffer.Span;
 
             int i = 0;
             while (Buffer.Length - BytePosition >= 0)
             {
-                var strSize = BitConverter.ToInt32(Buffer.Slice(BytePosition, 4).ToArray());
-                arr[i] = Encoding.UTF8.GetString(Buffer.Slice(BytePosition + 4, strSize).ToArray());
+                var strSize = BitConverter.ToInt32(bufferSpan.Slice(BytePosition, 4));
+                arr[i] = Encoding.UTF8.GetString(bufferSpan.Slice(BytePosition + 4, strSize));
                 i++;
 
-                BytePosition += BytePosition + 4 + strSize;
+                BytePosition += 4 + strSize;
             }
 
             return arr;
         }
 
-        public class StartRecordData
-        {
-            /// <summary>
-            /// Entry ID; this will be used for this entry in future records
-            /// </summary>
-            public readonly int Entry;
+        /// <summary>
+        /// Data contained in a start control record.
+        /// This can be read by calling GetStartData()
+        /// </summary>
+        public record StartRecordData(int Entry, string Name, string Type, string Metadata);
 
-            /// <summary>
-            /// Entry name
-            /// </summary>
-            public readonly string Name;
-
-            /// <summary>
-            /// Type of the stored data for this entry, as a string, e.g. "double".
-            /// </summary>
-            public readonly string Type;
-
-            /// <summary>
-            /// Initial metadata
-            /// </summary>
-            public readonly string Metadata;
-
-            /// <summary>
-            /// Data contained in a start control record.
-            /// This can be read by calling GetStartData()
-            /// </summary>
-            public StartRecordData(int entry, string name, string type, string metadata)
-            {
-                Entry = entry;
-                Name = name;
-                Type = type;
-                Metadata = metadata;
-            }
-        }
-
-        public class MetadataRecordData
-        {
-            /// <summary>
-            /// Entry ID.
-            /// </summary>
-            public readonly int Entry;
-
-            /// <summary>
-            /// New metadata for the entry.
-            /// </summary>
-            public readonly string Metadata;
-
-            /// <summary>
-            /// Data contained in a set metadata control record.
-            /// This can be read by calling GetSetMetadataData()
-            /// </summary>
-            /// <param name="entry">Entry ID</param>
-            /// <param name="metadata">Metadata for the entry</param>
-            public MetadataRecordData(int entry, string metadata)
-            {
-                Entry = entry;
-                Metadata = metadata;
-            }
-        }
-
-
+        /// <summary>
+        /// Data contained in a set metadata control record.
+        /// This can be read by calling GetSetMetadataData()
+        /// </summary>
+        /// <param name="entry">Entry ID</param>
+        /// <param name="metadata">Metadata for the entry</param>
+        public record MetadataRecordData(int Entry, string Metadata);
     }
 
     public enum DataLogRecordType
