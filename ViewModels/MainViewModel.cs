@@ -371,7 +371,8 @@ namespace Titan.ViewModels
 
         private void DatalogReader_ProgressChanged(object sender, DataLogReader.ProgressChangedEventArgs e)
         {
-            Progress = (int)(e.Progress * 100.0);
+            Dispatcher.UIThread.Post(() => Progress = (int)(e.Progress * 100.0));
+
         }
     }
 }
