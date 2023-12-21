@@ -216,7 +216,7 @@ namespace Titan.ViewModels
                     var entry = velocityInRangeEntries[i];
                     var frame = new double[4];
 
-                    frame[0] = entry.Item1 * 0.001; // set timestamp equal to our most frequent signal
+                    frame[0] = entry.Item1 * 0.000001; // set timestamp equal to our most frequent signal
                     frame[1] = voltageInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated voltage value
                     frame[2] = positionInRangeEntries.GetInterpolatedValue(entry.Item1); // get interpolated position value
                     frame[3] = entry.Item2; // no need to interpolate, this is our time base
@@ -231,7 +231,7 @@ namespace Titan.ViewModels
                     var entry = positionInRangeEntries[i];
                     var frame = new double[4];
 
-                    frame[0] = entry.Item1 * 0.001;
+                    frame[0] = entry.Item1 * 0.000001;
                     frame[1] = voltageInRangeEntries.GetInterpolatedValue(entry.Item1);
                     frame[2] = entry.Item2; // get interpolated position value
                     frame[3] = velocityInRangeEntries.GetInterpolatedValue(entry.Item1);
