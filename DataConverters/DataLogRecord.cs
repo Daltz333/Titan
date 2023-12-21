@@ -123,7 +123,7 @@ namespace Titan.DataConverters
 
         public double GetDouble()
         {
-            var res = BitConverter.ToInt32(Buffer.Span.Slice(BytePosition, 8));
+            var res = BitConverter.Int64BitsToDouble(BitConverter.ToInt64(Buffer.Span.Slice(BytePosition, 8)));
             BytePosition += 8;
             return res;
         }
