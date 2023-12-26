@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Serilog;
 using System;
+using System.IO;
 
 namespace Titan
 {
@@ -13,7 +14,8 @@ namespace Titan
         public static void Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
-                .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
+                .WriteTo.Console()
+                .WriteTo.File(Path.Combine("logs", "log.txt"), rollingInterval: RollingInterval.Day)
                 .CreateLogger();
 
             try
