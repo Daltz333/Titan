@@ -41,9 +41,11 @@ namespace Titan.ViewModels
         [RelayCommand]
         private async Task ConvertToSysIdJson()
         {
-            Log.Information("Beginning Log Conversion.");
+            try
+            {
+                Log.Information("Beginning Log Conversion.");
 
-            Dictionary<string, object> rootJson = new()
+                Dictionary<string, object> rootJson = new()
             {
                 { "sysid", true },
                 { "test", "Simple" },
@@ -51,115 +53,137 @@ namespace Titan.ViewModels
                 { "unitsPerRotation", 1.0 }
             };
 
-            var stateRecord = strings.FirstOrDefault(p => p.Name == "State" || p.Name.Contains("sysid-test-state", StringComparison.InvariantCultureIgnoreCase));
-            var velocityRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Velocity")?.Name);
-            var positionRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Position")?.Name);
-            var voltageRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Voltage")?.Name);
+                var stateRecord = strings.FirstOrDefault(p => p.Name == "State" || p.Name.Contains("sysid-test-state", StringComparison.InvariantCultureIgnoreCase));
+                var velocityRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Velocity")?.Name);
+                var positionRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Position")?.Name);
+                var voltageRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Voltage")?.Name);
 
-            if (stateRecord.Id == 0)
-            {
-                Log.Warning("State record is missing.");
-
-                var box = MessageBoxManager.GetMessageBoxStandard(
-                    "State record is missing",
-                    "State record is missing, please verify you have selected a valid characterization datalog.",
-                    windowStartupLocation: WindowStartupLocation.CenterOwner);
-
-                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
-                return;
-            }
-
-            if (velocityRecord.Id == 0)
-            {
-                Log.Information("Velocity signal is not selected or missing.");
-
-                var box = MessageBoxManager.GetMessageBoxStandard(
-                    "Velocity signal is missing",
-                    "Velocity is missing, please verify you have selected a signal as the Velocity signal.",
-                    windowStartupLocation: WindowStartupLocation.CenterOwner);
-
-                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
-                return;
-            }
-
-            if (positionRecord.Id == 0)
-            {
-                Log.Information("Position signal is not selected or missing.");
-
-                var box = MessageBoxManager.GetMessageBoxStandard(
-                    "Position signal is missing",
-                    "Position is missing, please verify you have selected a signal as the Position signal.",
-                    windowStartupLocation: WindowStartupLocation.CenterOwner);
-
-                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
-                return;
-            }
-
-            if (voltageRecord.Id == 0)
-            {
-                Log.Information("Voltage signal is not selected or missing.");
-
-                var box = MessageBoxManager.GetMessageBoxStandard(
-                    "Voltage signal is missing",
-                    "Voltage is missing, please verify you have selected a signal as the Voltage signal.",
-                    windowStartupLocation: WindowStartupLocation.CenterOwner);
-
-                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
-                return;
-            }
-
-            if (stateRecord.Values.Count > 0)
-            {
-                var dataEntries = new EntryContainer(velocityRecord.Values, positionRecord.Values, voltageRecord.Values);
-
-                rootJson["fast-forward"] = GetTestFrames("dynamic-forward", stateRecord.Values, dataEntries);
-                rootJson["fast-backward"] = GetTestFrames("dynamic-reverse", stateRecord.Values, dataEntries);
-                rootJson["slow-forward"] = GetTestFrames("quasistatic-forward", stateRecord.Values, dataEntries);
-                rootJson["slow-backward"] = GetTestFrames("quasistatic-reverse", stateRecord.Values, dataEntries);
-            }
-            else
-            {
-                var box = MessageBoxManager.GetMessageBoxStandard(
-                    "State record is missing",
-                    "State record is missing, please verify you have selected a valid characterization datalog.",
-                    windowStartupLocation: WindowStartupLocation.CenterOwner);
-
-                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
-
-                return;
-            }
-
-            // Get top level from the current control. Alternatively, you can use Window reference instead.
-            var topLevel = TopLevel.GetTopLevel(MainWindow.Instance);
-
-            if (topLevel != null)
-            {
-                // Start async operation to open the dialog.
-                var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                if (stateRecord.Id == 0)
                 {
-                    Title = "Save SysID Json",
-                    FileTypeChoices = new List<FilePickerFileType>()
-                    {
-                        new(".json")
-                    }
-                });
+                    Log.Warning("State record is missing.");
 
-                if (file is not null)
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "State record is missing",
+                        "State record is missing, please verify you have selected a valid characterization datalog.",
+                        windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                    _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                    return;
+                }
+
+                if (velocityRecord.Id == 0)
                 {
-                    try
-                    {
-                        await using FileStream createStream = File.Create(file.Path.AbsolutePath);
-                        await JsonSerializer.SerializeAsync(createStream, rootJson);
-                    } catch (Exception ex)
-                    {
-                        var box = MessageBoxManager.GetMessageBoxStandard(
-                                "Failed to save JSON",
-                                $"An exception occurred while saving the JSON file. Please open a GitHub issue.\n\n{ex.Message}\n\n{ex.StackTrace}",
-                                windowStartupLocation: WindowStartupLocation.CenterOwner);
+                    Log.Information("Velocity signal is not selected or missing.");
 
-                        _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "Velocity signal is missing",
+                        "Velocity is missing, please verify you have selected a signal as the Velocity signal.",
+                        windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                    _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                    return;
+                }
+
+                if (positionRecord.Id == 0)
+                {
+                    Log.Information("Position signal is not selected or missing.");
+
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "Position signal is missing",
+                        "Position is missing, please verify you have selected a signal as the Position signal.",
+                        windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                    _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                    return;
+                }
+
+                if (voltageRecord.Id == 0)
+                {
+                    Log.Information("Voltage signal is not selected or missing.");
+
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "Voltage signal is missing",
+                        "Voltage is missing, please verify you have selected a signal as the Voltage signal.",
+                        windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                    _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                    return;
+                }
+
+                if (stateRecord.Values.Count > 0)
+                {
+                    var dataEntries = new EntryContainer(velocityRecord.Values, positionRecord.Values, voltageRecord.Values);
+
+                    rootJson["fast-forward"] = GetTestFrames("dynamic-forward", stateRecord.Values, dataEntries);
+                    rootJson["fast-backward"] = GetTestFrames("dynamic-reverse", stateRecord.Values, dataEntries);
+                    rootJson["slow-forward"] = GetTestFrames("quasistatic-forward", stateRecord.Values, dataEntries);
+                    rootJson["slow-backward"] = GetTestFrames("quasistatic-reverse", stateRecord.Values, dataEntries);
+                }
+                else
+                {
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "State record is missing",
+                        "State record is missing, please verify you have selected a valid characterization datalog.",
+                        windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                    _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+
+                    return;
+                }
+
+                // Get top level from the current control. Alternatively, you can use Window reference instead.
+                var topLevel = TopLevel.GetTopLevel(MainWindow.Instance);
+
+                if (topLevel != null)
+                {
+                    IStorageFile? file = null;
+
+                    // Start async operation to open the dialog.
+                    file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                    {
+                        Title = "Save SysID Json",
+                        FileTypeChoices = new List<FilePickerFileType>()
+                        {
+                            new FilePickerFileType("SysID JSON")
+                            {
+                                Patterns = new[] {"*.json"},
+                            }
+                        }
+                    });
+
+                    if (file is not null)
+                    {
+                        try
+                        {
+                            await using FileStream createStream = File.Create(file.Path.AbsolutePath);
+                            await JsonSerializer.SerializeAsync(createStream, rootJson);
+
+                            var box = MessageBoxManager.GetMessageBoxStandard(
+                                    "Saved JSON",
+                                    $"Successfully saved JSON at {file.Path.AbsolutePath}",
+                                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                            _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                        }
+                        catch (Exception ex)
+                        {
+                            var box = MessageBoxManager.GetMessageBoxStandard(
+                                    "Failed to save JSON",
+                                    $"An exception occurred while saving the JSON file. Please open a GitHub issue.\n\n{ex.Message}\n\n{ex.StackTrace}",
+                                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                            _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                        }
                     }
                 }
+            } catch (Exception ex)
+            {
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Failed to convert WPILog",
+                    $"An exception occurred while converting. Please open a GitHub issue.\n\n{ex.Message}\n\n{ex.StackTrace}",
+                    windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
             }
         }
 
