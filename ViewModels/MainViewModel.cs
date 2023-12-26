@@ -137,13 +137,28 @@ namespace Titan.ViewModels
                 // Start async operation to open the dialog.
                 var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
-                    Title = "Save SysID Json"
+                    Title = "Save SysID Json",
+                    FileTypeChoices = new List<FilePickerFileType>()
+                    {
+                        new(".json")
+                    }
                 });
 
                 if (file is not null)
                 {
-                    await using FileStream createStream = File.Create(file.Path.AbsolutePath);
-                    await JsonSerializer.SerializeAsync(createStream, rootJson);
+                    try
+                    {
+                        await using FileStream createStream = File.Create(file.Path.AbsolutePath);
+                        await JsonSerializer.SerializeAsync(createStream, rootJson);
+                    } catch (Exception ex)
+                    {
+                        var box = MessageBoxManager.GetMessageBoxStandard(
+                                "Failed to save JSON",
+                                $"An exception occurred while saving the JSON file. Please open a GitHub issue.\n\n{ex.Message}\n\n{ex.StackTrace}",
+                                windowStartupLocation: WindowStartupLocation.CenterOwner);
+
+                        _ = await box.ShowWindowDialogAsync(MainWindow.Instance);
+                    }
                 }
             }
         }
