@@ -15,6 +15,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Titan.DataConverters;
 using Titan.Models;
+using Titan.Models.Json;
+using Titan.Models.Json.SerializationContext;
 using Titan.Utilities.Extensions;
 
 namespace Titan.ViewModels
@@ -45,13 +47,7 @@ namespace Titan.ViewModels
             {
                 Log.Information("Beginning Log Conversion.");
 
-                Dictionary<string, object> rootJson = new()
-            {
-                { "sysid", true },
-                { "test", "Simple" },
-                { "units", "Rotations" },
-                { "unitsPerRotation", 1.0 }
-            };
+                SysIdSimpleTest test = new SysIdSimpleTest();
 
                 var stateRecord = strings.FirstOrDefault(p => p.Name == "State" || p.Name.Contains("sysid-test-state", StringComparison.InvariantCultureIgnoreCase));
                 var velocityRecord = doubles.FirstOrDefault(p => p.Name == Records.FirstOrDefault(p => p.SelectedRecordType == "Velocity")?.Name);
@@ -114,10 +110,10 @@ namespace Titan.ViewModels
                 {
                     var dataEntries = new EntryContainer(velocityRecord.Values, positionRecord.Values, voltageRecord.Values);
 
-                    rootJson["fast-forward"] = GetTestFrames("dynamic-forward", stateRecord.Values, dataEntries);
-                    rootJson["fast-backward"] = GetTestFrames("dynamic-reverse", stateRecord.Values, dataEntries);
-                    rootJson["slow-forward"] = GetTestFrames("quasistatic-forward", stateRecord.Values, dataEntries);
-                    rootJson["slow-backward"] = GetTestFrames("quasistatic-reverse", stateRecord.Values, dataEntries);
+                    test.FastForward = GetTestFrames("dynamic-forward", stateRecord.Values, dataEntries).ToArray();
+                    test.FastBackward = GetTestFrames("dynamic-reverse", stateRecord.Values, dataEntries).ToArray();
+                    test.SlowForward = GetTestFrames("quasistatic-forward", stateRecord.Values, dataEntries).ToArray();
+                    test.SlowBackward = GetTestFrames("quasistatic-reverse", stateRecord.Values, dataEntries).ToArray();
                 }
                 else
                 {
@@ -156,7 +152,7 @@ namespace Titan.ViewModels
                         try
                         {
                             await using FileStream createStream = File.Create(file.Path.AbsolutePath);
-                            await JsonSerializer.SerializeAsync(createStream, rootJson);
+                            await JsonSerializer.SerializeAsync(createStream, test, SimpleTestContext.Default.SysIdSimpleTest);
 
                             var box = MessageBoxManager.GetMessageBoxStandard(
                                     "Saved JSON",

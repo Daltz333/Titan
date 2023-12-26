@@ -21,7 +21,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Build
-        run: dotnet build Titan.csproj -c Debug -o bin/Publish/
+        run: dotnet build Titan.csproj -c Release -o bin/Publish/
 
       - uses: actions/upload-artifact@v3
         with:
