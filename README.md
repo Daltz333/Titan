@@ -1,3 +1,7 @@
+# READ BEFORE CONTINUING
+
+Official WPILog support has been added to WPILib's SysID utility. As such, this tool is archived and no longer supported. 
+
 # Titan
 
 Datalog to SysID JSON Converter
